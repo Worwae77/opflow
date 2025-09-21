@@ -1,3 +1,44 @@
-.git
-node_modules
+# VCS
+.git/
 .gitignore
+.github/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Tests and docs (not needed for runtime image)
+tests/
+specs/
+docs/
+
+# Logs and coverage
+logs/
+*.log
+coverage/
+.nyc_output/
+
+# Environment files (do not bake secrets)
+.env
+.env.*
+!.env.example
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+
+# Tooling and local-only
+.specify/
+.vscode/
+.cache/
+.tmp/
+.turbo/
+
+# Compose files and docker configs (optional)
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile*
+!.dockerignore
