@@ -1,0 +1,304 @@
+{
+  "name": "OpFlow DevOps Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "DevOps Pipeline Request",
+        "formDescription": "Trigger a complete DevOps pipeline",
+        "formFields": {
+          "field1": {
+            "fieldName": "projectName",
+            "fieldType": "string",
+            "fieldDescription": "Project name",
+            "required": true
+          },
+          "field2": {
+            "fieldName": "branch",
+            "fieldType": "string",
+            "fieldDescription": "Git branch",
+            "required": true,
+            "defaultValue": "main"
+          },
+          "field3": {
+            "fieldName": "environment",
+            "fieldType": "options",
+            "fieldDescription": "Target environment",
+            "options": [
+              {
+                "name": "Development",
+                "value": "dev"
+              },
+              {
+                "name": "Staging",
+                "value": "staging"
+              },
+              {
+                "name": "Production",
+                "value": "prod"
+              }
+            ],
+            "required": true
+          }
+        }
+      },
+      "name": "Pipeline Trigger",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "approversGroup": "devops-approvers",
+        "approvalMessage": "=`DevOps pipeline for ${$node[\"Pipeline Trigger\"].json[\"projectName\"]} (${$node[\"Pipeline Trigger\"].json[\"environment\"]}) requires approval.`"
+      },
+      "name": "Approval Gate",
+      "type": "n8n-nodes-base.approval",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getSecret",
+        "secretPath": "={{ `secret/data/${$node[\"Pipeline Trigger\"].json[\"projectName\"]}/credentials` }}",
+        "secretKey": "jenkinsToken"
+      },
+      "name": "Get Jenkins Credentials",
+      "type": "vault",
+      "typeVersion": 1,
+      "position": [
+        650,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "buildJob",
+        "jobName": "={{ $node[\"Pipeline Trigger\"].json[\"projectName\"] }}-build",
+        "parameters": {
+          "BRANCH": "={{ $node[\"Pipeline Trigger\"].json[\"branch\"] }}",
+          "ENVIRONMENT": "={{ $node[\"Pipeline Trigger\"].json[\"environment\"] }}"
+        }
+      },
+      "name": "Trigger Jenkins Build",
+      "type": "jenkins",
+      "typeVersion": 1,
+      "position": [
+        850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getBuildStatus",
+        "jobName": "={{ $node[\"Pipeline Trigger\"].json[\"projectName\"] }}-build",
+        "buildNumber": "={{ $node[\"Trigger Jenkins Build\"].json[\"buildNumber\"] }}"
+      },
+      "name": "Check Build Status",
+      "type": "jenkins",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "uploadArtifact",
+        "repository": "={{ $node[\"Pipeline Trigger\"].json[\"projectName\"] }}-releases",
+        "artifactPath": "={{ `build-${$node[\"Check Build Status\"].json[\"buildNumber\"]}.jar` }}",
+        "targetPath": "={{ `${$node[\"Pipeline Trigger\"].json[\"environment\"]}/build-${$node[\"Check Build Status\"].json[\"buildNumber\"]}.jar` }}"
+      },
+      "name": "Upload to Artifactory",
+      "type": "artifactory",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "launch_job",
+        "jobTemplate": "deploy-application",
+        "extraVars": {
+          "project_name": "={{ $node[\"Pipeline Trigger\"].json[\"projectName\"] }}",
+          "environment": "={{ $node[\"Pipeline Trigger\"].json[\"environment\"] }}",
+          "artifact_path": "={{ $node[\"Upload to Artifactory\"].json[\"artifactUrl\"] }}",
+          "build_number": "={{ $node[\"Check Build Status\"].json[\"buildNumber\"] }}"
+        }
+      },
+      "name": "Deploy with AWX",
+      "type": "awx",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "execute",
+        "command": "validate_deployment",
+        "parameters": {
+          "project": "={{ $node[\"Pipeline Trigger\"].json[\"projectName\"] }}",
+          "environment": "={{ $node[\"Pipeline Trigger\"].json[\"environment\"] }}",
+          "build": "={{ $node[\"Check Build Status\"].json[\"buildNumber\"] }}"
+        }
+      },
+      "name": "MCP Validation",
+      "type": "mcp",
+      "typeVersion": 1,
+      "position": [
+        1650,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "={{ $node[\"Pipeline Trigger\"].json[\"webhookUrl\"] || 'http://slack-webhook-url' }}",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ { text: `✅ DevOps pipeline completed for ${$node[\"Pipeline Trigger\"].json[\"projectName\"]} (${$node[\"Pipeline Trigger\"].json[\"environment\"]}) - Build #${$node[\"Check Build Status\"].json[\"buildNumber\"]} deployed successfully!` } }}"
+      },
+      "name": "Send Success Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "={{ $node[\"Pipeline Trigger\"].json[\"webhookUrl\"] || 'http://slack-webhook-url' }}",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ { text: `❌ DevOps pipeline failed for ${$node[\"Pipeline Trigger\"].json[\"projectName\"]} (${$node[\"Pipeline Trigger\"].json[\"environment\"]}) - Check logs for details.` } }}"
+      },
+      "name": "Send Failure Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Pipeline Trigger": {
+      "main": [
+        [
+          {
+            "node": "Approval Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Gate": {
+      "main": [
+        [
+          {
+            "node": "Get Jenkins Credentials",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Trigger Jenkins Build",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Jenkins Credentials": {
+      "main": [
+        [
+          {
+            "node": "Trigger Jenkins Build",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Jenkins Build": {
+      "main": [
+        [
+          {
+            "node": "Check Build Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Build Status": {
+      "main": [
+        [
+          {
+            "node": "Upload to Artifactory",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Failure Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Artifactory": {
+      "main": [
+        [
+          {
+            "node": "Deploy with AWX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deploy with AWX": {
+      "main": [
+        [
+          {
+            "node": "MCP Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Validation": {
+      "main": [
+        [
+          {
+            "node": "Send Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "timezone": "UTC",
+    "executionTimeout": 1800
+  },
+  "tags": ["devops", "pipeline", "jenkins", "vault", "artifactory", "awx", "mcp"],
+  "hash": "opflow-devops-001"
+}
