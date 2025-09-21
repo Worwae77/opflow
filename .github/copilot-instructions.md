@@ -67,3 +67,9 @@ Updated Instructions for Copilot
 Context for task generation: $ARGUMENTS
 
 The tasks.md should be immediately executable. Each task must be specific enough for an LLM to complete without additional context.
+
+8) Tool Usage Guidelines
+- Use MCP tools for n8n operations: When working with n8n workflows, nodes, or automation, utilize the n8n-mcp tool suite (e.g., get_node_info, create_workflow, list_workflows) to interact with the n8n instance programmatically.
+- Use Context7 for library documentation: For technical questions about libraries, frameworks, or APIs, use mcp_mcp_docker_get-library-docs after resolving library IDs with mcp_mcp_docker_resolve-library-id.
+- Use sequential thinking for complex problems: For multi-step analysis, planning, or debugging, employ mcp_mcp_docker_sequentialthinking to break down problems into manageable thought steps with verification.
+- Integrate tools with OpFlow workflow: When creating or modifying n8n workflows, use MCP tools to validate node configurations, test workflows, and ensure proper integration with custom OpFlow nodes (Jenkins, Vault, Artifactory, AWX, MCP).
