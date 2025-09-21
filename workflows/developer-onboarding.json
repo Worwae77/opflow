@@ -1,0 +1,196 @@
+{
+  "name": "Developer Onboarding",
+  "nodes": [
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "=data.webhookUrl",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={ \"text\": `New developer onboarding request for ${$node[\"Form Trigger\"].json[\"developerName\"]} (${$node[\"Form Trigger\"].json[\"email\"]}) has been submitted. Awaiting approval.` }"
+      },
+      "name": "Notify Approvers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "=data.jenkinsUrl + '/job/developer-setup/buildWithParameters'",
+        "options": {},
+        "queryParametersJson": "={ \"DEVELOPER_NAME\": $node[\"Form Trigger\"].json[\"developerName\"], \"EMAIL\": $node[\"Form Trigger\"].json[\"email\"], \"TEAM\": $node[\"Form Trigger\"].json[\"team\"] }"
+      },
+      "name": "Trigger Jenkins Job",
+      "type": "jenkins",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "path": "='secret/teams/' + $node[\"Form Trigger\"].json[\"team\"] + '/developers/' + $node[\"Form Trigger\"].json[\"email\"]",
+        "secretData": "={ \"name\": $node[\"Form Trigger\"].json[\"developerName\"], \"email\": $node[\"Form Trigger\"].json[\"email\"], \"team\": $node[\"Form Trigger\"].json[\"team\"], \"created\": new Date().toISOString() }"
+      },
+      "name": "Store in Vault",
+      "type": "vault",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "=data.webhookUrl",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={ \"text\": `Developer onboarding completed for ${$node[\"Form Trigger\"].json[\"developerName\"]} (${$node[\"Form Trigger\"].json[\"email\"]}). Access has been provisioned.` }"
+      },
+      "name": "Send Completion Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "Developer Onboarding Request",
+        "formDescription": "Request access and setup for a new developer",
+        "formFields": {
+          "field1": {
+            "fieldName": "developerName",
+            "fieldType": "string",
+            "fieldDescription": "Developer's full name",
+            "required": true
+          },
+          "field2": {
+            "fieldName": "email",
+            "fieldType": "string",
+            "fieldDescription": "Developer's email address",
+            "required": true
+          },
+          "field3": {
+            "fieldName": "team",
+            "fieldType": "options",
+            "fieldDescription": "Developer's team",
+            "options": [
+              {
+                "name": "Frontend",
+                "value": "frontend"
+              },
+              {
+                "name": "Backend",
+                "value": "backend"
+              },
+              {
+                "name": "DevOps",
+                "value": "devops"
+              }
+            ],
+            "required": true
+          }
+        }
+      },
+      "name": "Form Trigger",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "approversGroup": "devops-approvers",
+        "approvalMessage": "=`Developer onboarding request for ${$node[\"Form Trigger\"].json[\"developerName\"]} (${$node[\"Form Trigger\"].json[\"email\"]}) requires your approval.`"
+      },
+      "name": "Approval",
+      "type": "n8n-nodes-base.approval",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval": {
+      "main": [
+        [
+          {
+            "node": "Notify Approvers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Approvers": {
+      "main": [
+        [
+          {
+            "node": "Trigger Jenkins Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Jenkins Job": {
+      "main": [
+        [
+          {
+            "node": "Store in Vault",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store in Vault": {
+      "main": [
+        [
+          {
+            "node": "Send Completion Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "timezone": "UTC",
+    "executionTimeout": 300
+  },
+  "staticData": {
+    "jenkinsUrl": "http://jenkins:8080",
+    "webhookUrl": "http://slack-webhook-url"
+  },
+  "tags": ["onboarding", "automation"],
+  "hash": "abc123"
+}

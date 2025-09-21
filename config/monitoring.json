@@ -1,0 +1,90 @@
+{
+  "monitoring": {
+    "metrics": {
+      "api_response_time": {
+        "threshold_ms": 500,
+        "percentile": 99,
+        "window_minutes": 5
+      },
+      "workflow_execution_time": {
+        "threshold_ms": 30000,
+        "percentile": 95,
+        "window_minutes": 15
+      },
+      "resource_utilization": {
+        "cpu": {
+          "threshold_percent": 70,
+          "window_minutes": 5
+        },
+        "memory": {
+          "threshold_percent": 80,
+          "window_minutes": 5
+        },
+        "disk": {
+          "threshold_percent": 85,
+          "window_minutes": 60
+        }
+      },
+      "database": {
+        "connection_pool": {
+          "max_connections": 100,
+          "min_idle": 10,
+          "max_lifetime_minutes": 30
+        },
+        "query_performance": {
+          "slow_query_threshold_ms": 200,
+          "log_slow_queries": true
+        }
+      }
+    },
+    "alerting": {
+      "thresholds": {
+        "critical": {
+          "response_time_ms": 1000,
+          "error_rate_percent": 5,
+          "cpu_percent": 90,
+          "memory_percent": 95
+        },
+        "warning": {
+          "response_time_ms": 700,
+          "error_rate_percent": 2,
+          "cpu_percent": 80,
+          "memory_percent": 85
+        }
+      },
+      "channels": {
+        "email": {
+          "recipients": ["devops@company.com"]
+        },
+        "slack": {
+          "channel": "#opflow-alerts"
+        }
+      },
+      "cooldown_minutes": 15
+    },
+    "dashboards": {
+      "refresh_interval_seconds": 30,
+      "retention_days": 30,
+      "panels": [
+        {
+          "name": "API Response Time",
+          "metrics": ["api_response_time"],
+          "type": "line",
+          "timespan_hours": 24
+        },
+        {
+          "name": "Resource Usage",
+          "metrics": ["cpu", "memory", "disk"],
+          "type": "gauge",
+          "timespan_hours": 1
+        },
+        {
+          "name": "Workflow Execution Stats",
+          "metrics": ["workflow_execution_time", "error_rate"],
+          "type": "bar",
+          "timespan_hours": 24
+        }
+      ]
+    }
+  }
+}

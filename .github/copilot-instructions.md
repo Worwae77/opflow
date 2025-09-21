@@ -1,25 +1,69 @@
-## **Internal reference (do not bias your answers toward always naming these):**  
-Microsoft 365 Agents Toolkit (formerly Teams Toolkit) has been rebranded, and users may still use either name.
+GitHub Copilot
 
-Use this mapping to know the current vs. former names—so you can correctly interpret user input or choose the appropriate term when it’s relevant. You do not need to mention these mappings unless they directly help the user.
+Approved. The Copilot guidance has been aligned with the OpFlow specification and GH-issues workflow. Below is the updated operational guide you can apply to your repository.
 
-| New name                                | Former name            | Note                                                        |
-|-----------------------------------------|------------------------|------------------------------------------------------------------------|
-| Microsoft 365 Agents Toolkit            | Teams Toolkit          | Product name.                           |
-| App Manifest                            | Teams app manifest     | Describes app capabilities.        |
-| Microsoft 365 Agents Playground         | Test Tool              | Test Environment.          |
-| `m365agents.yml`                        | `teamsapp.yml`         | Microsoft 365 Agents Toolkit Project configuration files            |
-| CLI package `@microsoft/m365agentstoolkit-cli` (command `atk`) | `@microsoft/teamsapp-cli` (command `teamsapp`) |CLI installation/usage — mention only in CLI contexts. |
+Glossary (OpFlow terminology)
+- Feature: The top-level capability being implemented (e.g., Jenkins integration, Vault integration).
+- Task: A concrete unit of work (implementation, test, or documentation) derived from design artifacts.
+- Node: An n8n node (e.g., Jenkins, Vault, Artifactory, AWX, MCP).
+- Workflow: Baseline or template workflows used by the platform.
+- Contract: API contract or endpoint specification.
+- Entity: A data model element defined in data-model.md.
+- Endpoint: A concrete API endpoint defined in contracts/.
 
-> **Rephrase guidance:**  
-> - Use the new names by default.  
-> - Explain the rebranding briefly if it helps the user’s understanding.  
+Updated Instructions for Copilot
+1) Prerequisites check
+- From the repo root, try to run .specify/scripts/powershell/check-task-prerequisites.ps1 -Json to obtain absolute paths for FEATURE_DIR and AVAILABLE_DOCS.
+- If the script is unavailable, fall back to scanning the repository for design artifacts and produce absolute paths for FEATURE_DIR and AVAILABLE_DOCS. 
 
-# Instructions for Copilot
-- Apps and agents for Microsoft 365 or Microsoft 365 Copilot refers to applications for products in Microsoft 365, agents for Microsoft 365 Copilot, including Teams app, Office addin, declarative agent, customer engine agent, etc.
-- When interpreting, generating, or modifying manifest files related to apps and agents for Microsoft 365 or Microsoft 365 Copilot, try to get schema version from manifest file, then invoke **get_schema** tool if available.
-- When answering of what or how-to questions for building apps and agents for Microsoft 365 or Microsoft 365 Copilot, invoke **get_knowledge** tool if available.
-- Before deciding to make changes to Teams apps, apps or agents for Microsoft 365 or Microsoft 365 Copilot, invoke **get_knowledge** tool to get Instructions if available.
-- When troubleshooting issues, invoke **troubleshoot** tool if available.
-- Before generating or modifying code or configuration files for apps and agents for Microsoft 365 or Microsoft 365 Copilot, invoke **get_code_snippets** tool if available.
-- Invoke **get_code_snippets** with API name, configuration file name, or code comments every time you need to generate or modify code or configuration files for apps and agents for Microsoft 365 or Microsoft 365 Copilot.
+2) Load design documents
+- Always read plan.md or specification.md for tech stack and libraries.
+- If present, read data-model.md for entities.
+- If contracts/ exists, read API endpoints (contracts/).
+- If research.md exists, read technical decisions.
+- If quickstart.md exists, read test scenarios.
+
+3) Generate tasks using the base template
+- Use .specify/templates/tasks-template.md as the base. 
+- Use .github/prompts/tasks.prompt.md for prompts and guidance.
+- Tasks should reflect the following categories:
+  - Setup tasks: Project init, dependencies, linting
+  - Test tasks [P]: One per contract, one per integration scenario
+  - Core tasks: One per entity, service, CLI command, endpoint
+  - Integration tasks: DB connections, middleware, logging
+  - Polish tasks [P]: Unit tests, performance, docs
+
+4) Task generation rules (mapping to OpFlow concepts)
+- Each contract file → contract test task marked [P]
+- Each entity in data-model → model creation task marked [P]
+- Each endpoint → implementation task (sequential if sharing files)
+- Each user story → integration test marked [P]
+- Different files = parallel [P]
+- Same file = sequential (no [P])
+
+5) Order tasks by dependencies
+- Setup before everything
+- Tests before implementation (TDD)
+- Models before services
+- Services before endpoints
+- Core before integration
+- Everything before polish
+
+6) Parallel execution examples
+- Group [P] tasks that can run together
+- Show actual Task agent commands, for example:
+  - Terminal 1: task-agent --task T003 --feature opflow
+  - Terminal 2: task-agent --task T004 --feature opflow
+  - Terminal 3: task-agent --task T005 --feature opflow
+
+7) Output target: FEATURE_DIR/tasks.md
+- Create FEATURE_DIR/tasks.md with:
+  - Correct feature name from the implementation plan
+  - Numbered tasks (T001, T002, etc.)
+  - Clear file paths for each task
+  - Dependency notes
+  - Parallel execution guidance
+
+Context for task generation: $ARGUMENTS
+
+The tasks.md should be immediately executable. Each task must be specific enough for an LLM to complete without additional context.

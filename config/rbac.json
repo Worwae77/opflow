@@ -1,0 +1,75 @@
+{
+  "roles": {
+    "workflow_admin": {
+      "description": "Full access to manage workflows and configurations",
+      "permissions": [
+        "workflow:create",
+        "workflow:edit",
+        "workflow:delete",
+        "workflow:execute",
+        "workflow:view",
+        "credential:manage",
+        "user:manage",
+        "audit:view"
+      ]
+    },
+    "workflow_developer": {
+      "description": "Can create and edit workflows, but cannot manage users or credentials",
+      "permissions": [
+        "workflow:create",
+        "workflow:edit",
+        "workflow:execute",
+        "workflow:view",
+        "audit:view"
+      ]
+    },
+    "workflow_executor": {
+      "description": "Can only execute and view workflows",
+      "permissions": [
+        "workflow:execute",
+        "workflow:view"
+      ]
+    },
+    "auditor": {
+      "description": "Can only view workflows and audit logs",
+      "permissions": [
+        "workflow:view",
+        "audit:view"
+      ]
+    }
+  },
+  "groups": {
+    "devops-team": {
+      "roles": ["workflow_admin"],
+      "approval_required": ["credential:manage", "user:manage"]
+    },
+    "developers": {
+      "roles": ["workflow_developer"],
+      "approval_required": ["workflow:create", "workflow:edit"]
+    },
+    "users": {
+      "roles": ["workflow_executor"]
+    },
+    "security-team": {
+      "roles": ["auditor", "workflow_executor"],
+      "special_permissions": ["security:audit"]
+    }
+  },
+  "approval_policies": {
+    "credential_management": {
+      "approvers_required": 2,
+      "approver_groups": ["devops-team", "security-team"],
+      "auto_expire_hours": 24
+    },
+    "workflow_changes": {
+      "approvers_required": 1,
+      "approver_groups": ["devops-team"],
+      "auto_expire_hours": 72
+    },
+    "security_sensitive": {
+      "approvers_required": 2,
+      "approver_groups": ["security-team"],
+      "auto_expire_hours": 4
+    }
+  }
+}

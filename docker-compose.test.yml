@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  postgres_test:
+    image: postgres:14-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=opflow_test
+      - POSTGRES_USER=test_user
+      - POSTGRES_PASSWORD=test_password
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+
+  jenkins_test:
+    image: jenkins/jenkins:lts-jdk11
+    ports:
+      - "8080:8080"
+    environment:
+      - JENKINS_ADMIN_ID=test
+      - JENKINS_ADMIN_PASSWORD=test_token
+    volumes:
+      - jenkins_test_data:/var/jenkins_home
+
+  vault_test:
+    image: vault:latest
+    ports:
+      - "8200:8200"
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=test_token
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+    cap_add:
+      - IPC_LOCK
+
+  keycloak_test:
+    image: quay.io/keycloak/keycloak:latest
+    ports:
+      - "8180:8080"
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres_test:5432/keycloak_test
+      - KC_DB_USERNAME=test_user
+      - KC_DB_PASSWORD=test_password
+    depends_on:
+      - postgres_test
+    command:
+      - start-dev
+
+  mockserver:
+    image: mockserver/mockserver:latest
+    ports:
+      - "9000:1080"
+    environment:
+      - MOCKSERVER_INITIALIZATION_JSON_PATH=/config/initializerJson.json
+    volumes:
+      - ./tests/mocks:/config
+
+volumes:
+  postgres_test_data:
+  jenkins_test_data:

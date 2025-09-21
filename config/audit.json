@@ -1,0 +1,71 @@
+{
+  "audit": {
+    "storage": {
+      "type": "postgresql",
+      "retention_days": 365,
+      "table_name": "audit_logs"
+    },
+    "events": {
+      "workflow_execution": {
+        "enabled": true,
+        "include_parameters": true,
+        "mask_sensitive_data": true
+      },
+      "workflow_modification": {
+        "enabled": true,
+        "track_changes": true,
+        "require_comment": true
+      },
+      "user_access": {
+        "enabled": true,
+        "include_ip": true,
+        "track_failed_attempts": true
+      },
+      "approvals": {
+        "enabled": true,
+        "track_comments": true,
+        "require_reason_on_reject": true
+      },
+      "credential_access": {
+        "enabled": true,
+        "mask_values": true,
+        "track_usage": true
+      }
+    },
+    "alerts": {
+      "suspicious_activity": {
+        "enabled": true,
+        "thresholds": {
+          "failed_logins": 5,
+          "sensitive_data_access": 10,
+          "workflow_changes": 20
+        },
+        "notification_channels": ["slack", "email"]
+      }
+    },
+    "reporting": {
+      "scheduled_reports": [
+        {
+          "name": "Daily Security Summary",
+          "frequency": "daily",
+          "recipients": ["security-team@company.com"],
+          "include_events": [
+            "user_access",
+            "credential_access",
+            "suspicious_activity"
+          ]
+        },
+        {
+          "name": "Weekly Compliance Report",
+          "frequency": "weekly",
+          "recipients": ["compliance@company.com"],
+          "include_events": [
+            "workflow_modification",
+            "approvals",
+            "credential_access"
+          ]
+        }
+      ]
+    }
+  }
+}

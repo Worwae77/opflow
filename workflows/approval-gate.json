@@ -1,0 +1,113 @@
+{
+  "name": "Approval Gate",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "requestApproval",
+        "requestDetails": {
+          "title": "={{ $json.title }}",
+          "description": "={{ $json.description }}",
+          "requester": "={{ $json.requester }}",
+          "approvers": "={{ $json.approvers }}"
+        }
+      },
+      "name": "Request Approval",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#approvals",
+        "text": "Approval requested: {{ $json.title }} by {{ $json.requester }}. Please review and approve/reject."
+      },
+      "name": "Notify Approvers",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.approved }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Check Approval Status",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#approvals",
+        "text": "✅ Approval granted for: {{ $json.title }}"
+      },
+      "name": "Approval Granted",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "channel": "#approvals",
+        "text": "❌ Approval denied for: {{ $json.title }}. Reason: {{ $json.rejectionReason }}"
+      },
+      "name": "Approval Denied",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Request Approval": {
+      "main": [
+        [
+          {
+            "node": "Notify Approvers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Approvers": {
+      "main": [
+        [
+          {
+            "node": "Check Approval Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approval Status": {
+      "main": [
+        [
+          {
+            "node": "Approval Granted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Approval Denied",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}

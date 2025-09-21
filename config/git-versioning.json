@@ -1,0 +1,51 @@
+{
+  "git": {
+    "enabled": true,
+    "repository": {
+      "url": "git@github.com:company/opflow-workflows.git",
+      "branch": "main",
+      "paths": {
+        "workflows": "/workflows",
+        "credentials": "/credentials",
+        "configurations": "/config"
+      }
+    },
+    "sync": {
+      "automatic": true,
+      "interval_minutes": 5,
+      "on_workflow_change": true
+    },
+    "branch_policies": {
+      "main": {
+        "protected": true,
+        "require_review": true,
+        "required_approvals": 1,
+        "allow_force_push": false
+      },
+      "development": {
+        "protected": true,
+        "require_review": true,
+        "required_approvals": 1
+      },
+      "feature/*": {
+        "naming_pattern": "^feature/[A-Z]+-[0-9]+-.+$",
+        "auto_delete_on_merge": true
+      }
+    },
+    "commit_policies": {
+      "require_signed_commits": true,
+      "require_issue_reference": true,
+      "issue_reference_pattern": "[A-Z]+-[0-9]+"
+    },
+    "review_policies": {
+      "require_up_to_date": true,
+      "dismiss_stale_reviews": true,
+      "require_code_owner_reviews": true
+    },
+    "code_owners": {
+      "workflows/*": ["@devops-team"],
+      "credentials/*": ["@security-team"],
+      "config/*": ["@devops-team", "@security-team"]
+    }
+  }
+}

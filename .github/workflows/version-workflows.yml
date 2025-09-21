@@ -1,0 +1,51 @@
+name: Version Workflows
+
+on:
+  push:
+    branches: [ main, dev ]
+    paths:
+      - 'workflows/**'
+  pull_request:
+    branches: [ main, dev ]
+    paths:
+      - 'workflows/**'
+
+jobs:
+  version-workflows:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Version workflows
+      run: node scripts/version-workflow.js
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Commit workflow versions
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add workflows/
+        git add database/workflow_versions.sql
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "chore: version workflows [skip ci]"
+          git push
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
