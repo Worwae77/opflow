@@ -1,0 +1,371 @@
+{
+  "name": "Infrastructure Provisioning",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Infrastructure Provisioning Request",
+        "formDescription": "Request infrastructure provisioning (VMs, networks, storage)",
+        "formFields": {
+          "field1": {
+            "fieldName": "environment",
+            "fieldType": "options",
+            "fieldDescription": "Target environment",
+            "options": [
+              {
+                "name": "Development",
+                "value": "dev"
+              },
+              {
+                "name": "Staging",
+                "value": "staging"
+              },
+              {
+                "name": "Production",
+                "value": "prod"
+              }
+            ],
+            "required": true
+          },
+          "field2": {
+            "fieldName": "infrastructureType",
+            "fieldType": "options",
+            "fieldDescription": "Type of infrastructure",
+            "options": [
+              {
+                "name": "Virtual Machines",
+                "value": "vms"
+              },
+              {
+                "name": "Kubernetes Cluster",
+                "value": "k8s"
+              },
+              {
+                "name": "Network Resources",
+                "value": "network"
+              },
+              {
+                "name": "Storage",
+                "value": "storage"
+              }
+            ],
+            "required": true
+          },
+          "field3": {
+            "fieldName": "size",
+            "fieldType": "options",
+            "fieldDescription": "Resource size/scale",
+            "options": [
+              {
+                "name": "Small",
+                "value": "small"
+              },
+              {
+                "name": "Medium",
+                "value": "medium"
+              },
+              {
+                "name": "Large",
+                "value": "large"
+              }
+            ],
+            "required": true
+          },
+          "field4": {
+            "fieldName": "requester",
+            "fieldType": "string",
+            "fieldDescription": "Your name/email",
+            "required": true
+          }
+        }
+      },
+      "name": "Provisioning Request",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "approversGroup": "infrastructure-approvers",
+        "approvalMessage": "=`Infrastructure provisioning request: ${$node[\"Provisioning Request\"].json[\"infrastructureType\"]} (${$node[\"Provisioning Request\"].json[\"size\"]}) for ${$node[\"Provisioning Request\"].json[\"environment\"]} environment requires approval.`"
+      },
+      "name": "Approval Gate",
+      "type": "n8n-nodes-base.approval",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getSecret",
+        "secretPath": "={{ `secret/data/infrastructure/${$node[\"Provisioning Request\"].json[\"environment\"]}/credentials` }}",
+        "secretKey": "cloudCredentials"
+      },
+      "name": "Get Cloud Credentials",
+      "type": "vault",
+      "typeVersion": 1,
+      "position": [
+        650,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "downloadArtifact",
+        "repository": "infrastructure-configs",
+        "artifactPath": "={{ `${$node[\"Provisioning Request\"].json[\"infrastructureType\"]}/terraform/${$node[\"Provisioning Request\"].json[\"size\"]}.tf` }}",
+        "targetPath": "={{ `temp/${$node[\"Provisioning Request\"].json[\"infrastructureType\"]}-${$node[\"Provisioning Request\"].json[\"size\"]}.tf` }}"
+      },
+      "name": "Download Terraform Config",
+      "type": "artifactory",
+      "typeVersion": 1,
+      "position": [
+        850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "launch_job",
+        "jobTemplate": "infrastructure-provisioning",
+        "extraVars": {
+          "environment": "={{ $node[\"Provisioning Request\"].json[\"environment\"] }}",
+          "infrastructure_type": "={{ $node[\"Provisioning Request\"].json[\"infrastructureType\"] }}",
+          "size": "={{ $node[\"Provisioning Request\"].json[\"size\"] }}",
+          "terraform_config": "={{ $node[\"Download Terraform Config\"].json[\"localPath\"] }}",
+          "cloud_credentials": "={{ $node[\"Get Cloud Credentials\"].json[\"secret\"] }}",
+          "requester": "={{ $node[\"Provisioning Request\"].json[\"requester\"] }}"
+        }
+      },
+      "name": "Execute AWX Provisioning",
+      "type": "awx",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "buildJob",
+        "jobName": "infrastructure-validation",
+        "parameters": {
+          "ENVIRONMENT": "={{ $node[\"Provisioning Request\"].json[\"environment\"] }}",
+          "INFRA_TYPE": "={{ $node[\"Provisioning Request\"].json[\"infrastructureType\"] }}",
+          "SIZE": "={{ $node[\"Provisioning Request\"].json[\"size\"] }}"
+        }
+      },
+      "name": "Trigger Validation Build",
+      "type": "jenkins",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getBuildStatus",
+        "jobName": "infrastructure-validation",
+        "buildNumber": "={{ $node[\"Trigger Validation Build\"].json[\"buildNumber\"] }}"
+      },
+      "name": "Check Validation Status",
+      "type": "jenkins",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "execute",
+        "command": "validate_infrastructure",
+        "parameters": {
+          "environment": "={{ $node[\"Provisioning Request\"].json[\"environment\"] }}",
+          "type": "={{ $node[\"Provisioning Request\"].json[\"infrastructureType\"] }}",
+          "size": "={{ $node[\"Provisioning Request\"].json[\"size\"] }}",
+          "build_status": "={{ $node[\"Check Validation Status\"].json[\"status\"] }}"
+        }
+      },
+      "name": "MCP Compliance Check",
+      "type": "mcp",
+      "typeVersion": 1,
+      "position": [
+        1650,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "uploadArtifact",
+        "repository": "infrastructure-artifacts",
+        "artifactPath": "={{ `provisioning-results/${$node[\"Provisioning Request\"].json[\"environment\"]}/${$node[\"Provisioning Request\"].json[\"infrastructureType\"]}-${Date.now()}.json` }}",
+        "targetPath": "={{ `results/${$node[\"Provisioning Request\"].json[\"environment\"]}/${$node[\"Provisioning Request\"].json[\"infrastructureType\"]}-${$node[\"Provisioning Request\"].json[\"size\"]}-${Date.now()}.json` }}"
+      },
+      "name": "Store Provisioning Results",
+      "type": "artifactory",
+      "typeVersion": 1,
+      "position": [
+        1850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "={{ $node[\"Provisioning Request\"].json[\"webhookUrl\"] || 'http://slack-webhook-url' }}",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ { text: `✅ Infrastructure provisioning completed: ${$node[\"Provisioning Request\"].json[\"infrastructureType\"]} (${$node[\"Provisioning Request\"].json[\"size\"]}) for ${$node[\"Provisioning Request\"].json[\"environment\"]} environment. Requester: ${$node[\"Provisioning Request\"].json[\"requester\"]}` } }}"
+      },
+      "name": "Send Success Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        2050,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "={{ $node[\"Provisioning Request\"].json[\"webhookUrl\"] || 'http://slack-webhook-url' }}",
+        "jsonParameters": true,
+        "bodyParametersJson": "={{ { text: `❌ Infrastructure provisioning failed: ${$node[\"Provisioning Request\"].json[\"infrastructureType\"]} for ${$node[\"Provisioning Request\"].json[\"environment\"]}. Check AWX logs.` } }}"
+      },
+      "name": "Send Failure Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Provisioning Request": {
+      "main": [
+        [
+          {
+            "node": "Approval Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Gate": {
+      "main": [
+        [
+          {
+            "node": "Get Cloud Credentials",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Download Terraform Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cloud Credentials": {
+      "main": [
+        [
+          {
+            "node": "Execute AWX Provisioning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Terraform Config": {
+      "main": [
+        [
+          {
+            "node": "Execute AWX Provisioning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute AWX Provisioning": {
+      "main": [
+        [
+          {
+            "node": "Trigger Validation Build",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Failure Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Validation Build": {
+      "main": [
+        [
+          {
+            "node": "Check Validation Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Validation Status": {
+      "main": [
+        [
+          {
+            "node": "MCP Compliance Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Compliance Check": {
+      "main": [
+        [
+          {
+            "node": "Store Provisioning Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Provisioning Results": {
+      "main": [
+        [
+          {
+            "node": "Send Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "timezone": "UTC",
+    "executionTimeout": 3600
+  },
+  "tags": ["infrastructure", "provisioning", "terraform", "awx", "jenkins", "vault", "artifactory", "mcp"],
+  "hash": "infra-provisioning-001"
+}
